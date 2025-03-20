@@ -1,11 +1,13 @@
-from fastapi import FastAPI, HTTPException, Body
-from pydantic import BaseModel
-from typing import List
-import firebase_admin
-from firebase_admin import credentials, firestore
 import os
+from typing import List
+
+import firebase_admin
+from fastapi import Body, FastAPI, HTTPException
+from firebase_admin import credentials, firestore
 from google import genai
 from google.genai import types
+from google.genai.types import GenerateContentConfig, GoogleSearch, Tool
+from pydantic import BaseModel
 
 # Initialize Firebase Admin SDK
 cred = credentials.Certificate("serviceAccountKey.json")
@@ -17,12 +19,14 @@ client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 app = FastAPI()
 
+# TODO: Move this to a config file and improve the prompt.
 FINANCIAL_SYSTEM_PROMPT = """
 You are an ai assistant that summarises information about companies and stocks that help users make better financial investment planning decisions. Provide the following information:
 P/E Ratio: Look for the company's price-to-earnings (P/E) ratio—the current share price relative to its per-share earnings.
 Beta: A company's beta can tell you how much risk is involved with a stock compared with the rest of the market.
 Dividend: If you want to park your money, invest in stocks with a high dividend.
 Answer accordingly in a polite way.
+Do not answer any other query about topics other than finance.
 """
 class ChatRequest(BaseModel):
     userId: str
@@ -55,12 +59,16 @@ def history_to_types(history: List[dict]) -> List[types.Content]:
 
 async def send_message_to_gemini(message: str, history: List[dict], prompt: str) -> str:
     try:
+        google_search_tool = Tool(google_search = GoogleSearch())
         content = history_to_types(history) + [types.Content(role="user", parts=[types.Part.from_text(text=message)])]
         response = client.models.generate_content(model="gemini-2.0-flash",
-                                    config=types.GenerateContentConfig(
-                                    system_instruction=prompt),
-                                    contents=content
-                                    )
+                                                config= GenerateContentConfig(
+                                                tools=[google_search_tool],
+                                                response_modalities=["TEXT"],
+                                                system_instruction=FINANCIAL_SYSTEM_PROMPT
+                                                ),  
+                                                contents=content
+                                                )
         return response.text
     except Exception as e:
         print(f"Error communicating with Gemini API: {e}")

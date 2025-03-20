@@ -4,6 +4,7 @@ import os
 import json
 import pandas as pd
 import requests
+import json
 from pydantic import BaseModel
 
 # Load environment variables from .env
@@ -49,35 +50,63 @@ def start_quiz(request: StartRequest):
     user_sessions[request.userId]["currentQuestion"] = question
     
     return {"message": f"Welcome! Here's your first question: {question['Topic']}"}
-
 @app.post("/answer")
 def answer_question(request: AnswerRequest):
     if request.userId not in user_sessions:
         raise HTTPException(status_code=400, detail="No active session. Start first!")
-    
+
     session = user_sessions[request.userId]
     question = session["currentQuestion"]
-    
-    # Ask Gemini to evaluate the answer
-    data = {"contents": [{"role": "user", "parts": [{"text": f"Is '{request.answer}' a correct answer for: {question['Topic']}?"}]}]}
-    
+
+    # Gemini API request payload
+    data = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": f"Evaluate this answer for correctness: '{request.answer}' in relation to the topic '{question['Topic']}'. You are a financial education expert evaluating quiz answers. Provide a brief (2-3 sentence) evaluation stating correctness and a short correct explanation as COrrect Answer: ."}
+                ]
+            }
+        ]
+    }
+
     try:
-        response = requests.post(GEMINI_URL, json=data, headers={"Content-Type": "application/json"})
+        # Send request to Gemini API
+        response = requests.post(
+            GEMINI_URL,
+            json=data,
+            headers={"Content-Type": "application/json"}
+        )
+
+        # Debugging: Print raw response
+        print("Raw Gemini Response:", response.text)
+
+        # Parse response JSON
         response_data = response.json()
-        evaluation = response_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "No response received.")
-        
+
+        # Extract evaluation text safely
+        candidates = response_data.get("candidates", [])
+        if candidates:
+            content = candidates[0].get("content", {})
+            parts = content.get("parts", [])
+            evaluation = parts[0].get("text", "No response received.") if parts else "No content parts received."
+        else:
+            evaluation = "No valid response from Gemini."
+
+        # Save history
         session["history"].append({"question": question["Topic"], "userAnswer": request.answer, "evaluation": evaluation})
-        
-        # Get the next question
+
+        # Return next question or finish quiz
         if session["questions"]:
             session["currentQuestion"] = session["questions"].pop(0)
             return {"evaluation": evaluation, "nextQuestion": session["currentQuestion"]["Topic"]}
         else:
             del user_sessions[request.userId]  # End session
             return {"evaluation": evaluation, "message": "Quiz completed!"}
-    
+
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Failed to process request: {str(e)}")
+
 
 @app.get("/progress/{userId}")
 def get_progress(userId: str):

@@ -4,17 +4,23 @@ import os
 import json
 import pandas as pd
 import requests
-import json
+import firebase_admin
+from firebase_admin import credentials, firestore
 from pydantic import BaseModel
-
-# Load environment variables from .env
 from dotenv import load_dotenv
+
 load_dotenv()
 
 app = FastAPI()
 
-# Load fintech topics from CSV
-file_path = "./finance_topics_full.csv"  # Update path if needed
+# Load Firebase credentials
+firebase_creds_path = "./firebase_credential.json"  # Update with your JSON file path
+cred = credentials.Certificate(firebase_creds_path)
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+
+# Load fintech topics
+file_path = "./finance_topics_full.csv"  
 df = pd.read_csv(file_path)
 
 # Gemini API setup
@@ -50,6 +56,7 @@ def start_quiz(request: StartRequest):
     user_sessions[request.userId]["currentQuestion"] = question
     
     return {"message": f"Welcome! Here's your first question: {question['Topic']}"}
+
 @app.post("/answer")
 def answer_question(request: AnswerRequest):
     if request.userId not in user_sessions:
@@ -64,7 +71,7 @@ def answer_question(request: AnswerRequest):
             {
                 "role": "user",
                 "parts": [
-                    {"text": f"Evaluate this answer for correctness: '{request.answer}' in relation to the topic '{question['Topic']}'. You are a financial education expert evaluating quiz answers. Provide a brief (2-3 sentence) evaluation stating correctness and a short correct explanation as COrrect Answer: ."}
+                    {"text": f"Evaluate this answer for correctness: '{request.answer}' in relation to the topic '{question['Topic']}'. You are a financial education expert evaluating quiz answers. Provide a brief (2-3 sentence) evaluation stating correctness and a short correct explanation as Correct Answer: ."}
                 ]
             }
         ]
@@ -93,8 +100,15 @@ def answer_question(request: AnswerRequest):
         else:
             evaluation = "No valid response from Gemini."
 
-        # Save history
-        session["history"].append({"question": question["Topic"], "userAnswer": request.answer, "evaluation": evaluation})
+        # Save history in session
+        history_entry = {"question": question["Topic"], "userAnswer": request.answer, "evaluation": evaluation}
+        session["history"].append(history_entry)
+
+        # Store chat history in Firebase
+        db.collection("quiz_sessions").document(request.userId).set({
+            "userId": request.userId,
+            "history": session["history"]
+        }, merge=True)
 
         # Return next question or finish quiz
         if session["questions"]:
@@ -107,12 +121,14 @@ def answer_question(request: AnswerRequest):
     except requests.RequestException as e:
         raise HTTPException(status_code=500, detail=f"Failed to process request: {str(e)}")
 
-
 @app.get("/progress/{userId}")
 def get_progress(userId: str):
-    if userId not in user_sessions:
+    # Fetch chat history from Firebase
+    doc = db.collection("quiz_sessions").document(userId).get()
+    if not doc.exists:
         raise HTTPException(status_code=400, detail="No active session found")
-    return {"history": user_sessions[userId]["history"]}
+    
+    return {"history": doc.to_dict().get("history", [])}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

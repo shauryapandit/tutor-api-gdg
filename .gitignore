@@ -8,4 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+.env"firebase_credential.json" 
 .env
+firebase_credential.json

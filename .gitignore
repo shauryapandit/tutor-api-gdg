@@ -10,4 +10,4 @@ wheels/
 .venv
 .env"firebase_credential.json" 
 .env
-firebase_credential.json
+serviceAccountKey.json

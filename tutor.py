@@ -74,7 +74,7 @@ async def start_quiz(request: StartRequest):
     Available topics: {', '.join(df['Topic'].unique())}
     
     Provide a relevant and short question based on the difficulty level.
-    Question must not be more than one small sentence
+    Question must not be more than one small sentence.
     """
     
     try:

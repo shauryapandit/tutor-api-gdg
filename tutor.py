@@ -106,6 +106,36 @@ async def send_to_gemini(user_answer: str, question_topic: str) -> str:
         print(f"Error communicating with Gemini API: {e}")
         raise HTTPException(status_code=500, detail="Failed to process request.")
 
+# @app.post("/answer")
+# async def answer_question(request: AnswerRequest):
+#     if request.userId not in user_sessions:
+#         raise HTTPException(status_code=400, detail="No active session. Start first!")
+
+#     session = user_sessions[request.userId]
+#     question = session["currentQuestion"]
+
+#     evaluation = await send_to_gemini(request.answer, question["Topic"])
+
+#     history_entry = {
+#         "question": question["Topic"],
+#         "userAnswer": request.answer,
+#         "evaluation": evaluation,
+#     }
+#     session["history"].append(history_entry)
+
+#     # Update Firestore
+#     db.collection("quiz_sessions").document(request.userId).set({
+#         "userId": request.userId,
+#         "history": session["history"]
+#     }, merge=True)
+
+#     if session["questions"]:
+#         session["currentQuestion"] = session["questions"].pop(0)
+#         return {"evaluation": evaluation, "nextQuestion": session["currentQuestion"]["Topic"]}
+#     else:
+#         del user_sessions[request.userId]
+#         return {"evaluation": evaluation, "message": "Quiz completed!"}
+
 @app.post("/answer")
 async def answer_question(request: AnswerRequest):
     if request.userId not in user_sessions:
@@ -114,6 +144,7 @@ async def answer_question(request: AnswerRequest):
     session = user_sessions[request.userId]
     question = session["currentQuestion"]
 
+    # Evaluate the user's answer
     evaluation = await send_to_gemini(request.answer, question["Topic"])
 
     history_entry = {
@@ -123,18 +154,36 @@ async def answer_question(request: AnswerRequest):
     }
     session["history"].append(history_entry)
 
-    # Update Firestore
+    # Save progress to Firestore
     db.collection("quiz_sessions").document(request.userId).set({
         "userId": request.userId,
         "history": session["history"]
     }, merge=True)
 
+    # If there are more questions, generate a new question using Gemini
     if session["questions"]:
-        session["currentQuestion"] = session["questions"].pop(0)
-        return {"evaluation": evaluation, "nextQuestion": session["currentQuestion"]["Topic"]}
+        next_topic = session["questions"].pop(0)["Topic"]  # Get the next topic
+        prompt_text = f"""
+        {SYSTEM_PROMPT}
+        The previous question was '{question["Topic"]}'.
+        Now generate a new financial question based on the next topic: {next_topic}.
+        
+        Ensure the question is short and relevant to the topic.
+        """
+
+        try:
+            response = model.generate_content(prompt_text)
+            new_question = response.text if response.text else "No question generated."
+        except Exception as e:
+            print(f"Error generating next question with Gemini API: {e}")
+            raise HTTPException(status_code=500, detail="Failed to generate next question.")
+
+        session["currentQuestion"] = {"Topic": new_question}
+        return {"evaluation": evaluation, "nextQuestion": new_question}
     else:
         del user_sessions[request.userId]
         return {"evaluation": evaluation, "message": "Quiz completed!"}
+
 
 @app.get("/progress/{userId}")
 def get_progress(userId: str):

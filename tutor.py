@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException
-import uvicorn
 import os
 import uuid
 import firebase_admin
+import google.generativeai as genai
+import pandas as pd
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
 from firebase_admin import credentials, firestore
 from pydantic import BaseModel
-from dotenv import load_dotenv
-import google.generativeai as genai
 
 load_dotenv()
 
@@ -68,9 +69,11 @@ class AnswerRequest(BaseModel):
     userId: str
     sessionId: str
     answer: str
+    session_id: str
 
 @app.post("/start")
 async def start_quiz(request: StartRequest):
+
     if request.level not in ["Beginner", "Intermediate", "Advanced"]:
         raise HTTPException(status_code=400, detail="Invalid difficulty level")
 
@@ -98,6 +101,7 @@ async def send_to_gemini(prompt_text: str) -> str:
         return response.text.strip() if response.text else "No response received."
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
+
 
 async def generate_unique_question(level: str, asked_questions: list) -> str:
     """Generates a unique question that has not been asked before."""
@@ -151,6 +155,7 @@ async def answer_question(request: AnswerRequest):
 
     evaluation = await send_to_gemini(f"Evaluate: {question}\nUser's answer: {request.answer}")
 
+
     score = await evaluate_answer(request.answer, question, level)
     session["score"] += score
 
@@ -160,7 +165,7 @@ async def answer_question(request: AnswerRequest):
         "evaluation": evaluation,
         "score": score,
     }
-    session["history"].append(history_entry)
+    session_data["history"].append(history_entry)
 
     # Generate a new question, ensuring uniqueness
     asked_questions = session.get("askedQuestions", [])

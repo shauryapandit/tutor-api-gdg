@@ -69,7 +69,6 @@ class AnswerRequest(BaseModel):
     userId: str
     sessionId: str
     answer: str
-    session_id: str
 
 @app.post("/start")
 async def start_quiz(request: StartRequest):
@@ -165,7 +164,7 @@ async def answer_question(request: AnswerRequest):
         "evaluation": evaluation,
         "score": score,
     }
-    session_data["history"].append(history_entry)
+    session["history"].append(history_entry)
 
     # Generate a new question, ensuring uniqueness
     asked_questions = session.get("askedQuestions", [])

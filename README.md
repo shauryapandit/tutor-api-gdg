@@ -95,9 +95,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 - **Pandas** for CSV handling
 - **Uvicorn** for ASGI server
 
-## License
-This project is licensed under the MIT License.
 
-## Contributions
-Contributions are welcome! Feel free to open issues and pull requests.
-
+# ADD LIST SESSIONS ENDPOINT
+# Modify the readme (Outdated)
+# improve prompts

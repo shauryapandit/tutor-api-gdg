@@ -2,37 +2,23 @@ import os
 import requests
 from typing import List, Optional
 
-import firebase_admin
-from fastapi import FastAPI, HTTPException
-from firebase_admin import credentials, firestore
+from fastapi import HTTPException
 from google import genai
 from google.genai import types
 from google.genai.types import GenerateContentConfig, GoogleSearch, Tool
-from pydantic import BaseModel
 
-# Initialize Firebase Admin SDK
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+from auth import db
+from prompts import FINANCIAL_SYSTEM_PROMPT
 
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-app = FastAPI()
 
-FINANCIAL_SYSTEM_PROMPT = """
-You are an AI assistant that summarizes financial information about companies and stocks to help users make better investment decisions.
-Provide:
-- P/E Ratio: The company's price-to-earnings ratio.
-- Beta: Stock risk compared to the market.
-- Dividend: If the stock provides high dividends.
-Answer politely and do not respond to non-finance-related queries.
-"""
 
-class ChatRequest(BaseModel):
-    userId: str
-    message: str
-    chatSessionId: Optional[str] = None
-    imageUrl: Optional[str] = None
+
+
+def generate_chat_session_id():
+    return f"{int(os.times()[4] * 1000)}_{os.urandom(8).hex()}"
+
 
 async def load_chat_history(user_id: str, chat_session_id: str) -> List[dict]:
     """Loads chat history from Firebase Firestore."""
@@ -90,16 +76,3 @@ async def send_message_to_gemini(message: str, image_url: Optional[str], history
         print(f"Error communicating with Gemini API: {e}")
         raise HTTPException(status_code=500, detail="Failed to communicate with Gemini API.")
 
-@app.post("/chat")
-async def chat(request: ChatRequest):
-    chat_session_id = request.chatSessionId or str(int(os.times()[4] * 1000))
-    history = await load_chat_history(request.userId, chat_session_id)
-    response = await send_message_to_gemini(request.message, request.imageUrl, history)
-    new_history = history + [{"role": "user", "text": request.message, "image": request.imageUrl},
-                             {"role": "model", "text": response}]
-    await save_chat_history(request.userId, chat_session_id, new_history)
-    return {"reply": response, "chatSessionId": chat_session_id}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)

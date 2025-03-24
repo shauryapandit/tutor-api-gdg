@@ -2,7 +2,6 @@ import logging
 import os
 import uuid
 
-import google.generativeai as genai
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
@@ -10,11 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from auth import (authenticate_with_firebase, db, get_firebase_user,
                   refresh_firebase_token)
-from functions import (evaluate_answer, generate_chat_session_id,
-                       generate_unique_question, load_chat_history,
-                       save_chat_history, send_message_to_gemini,
-                       send_to_gemini)
-from models import (AnswerRequest, ChatRequest, ChatRequestImage, LoginRequest,
+from functions import (evaluate_answer, generate_unique_question,
+                       load_chat_history, save_chat_history,
+                       send_message_to_gemini, send_to_gemini)
+from models import (AnswerRequest, ChatRequestImage, LoginRequest,
                     RefreshRequest, StartRequest)
 from prompts import FINANCIAL_SYSTEM_PROMPT
 

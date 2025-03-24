@@ -55,7 +55,5 @@ def get_firebase_user(credentials: HTTPAuthorizationCredentials = Depends(securi
 
 '''
 TODO:
-create user
-update user -> password reset too.
-delete user
+update user -> password reset too maybe.
 '''

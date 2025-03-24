@@ -3,11 +3,6 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class ChatRequest(BaseModel):
-    # userId: str
-    message: str
-    chatSessionId: str
-
 class ChatRequestImage(BaseModel):
     # userId: str
     message: str

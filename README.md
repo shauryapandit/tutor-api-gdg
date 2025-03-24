@@ -99,3 +99,4 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 # ADD LIST SESSIONS ENDPOINT
 # Modify the readme (Outdated)
 # improve prompts
+# add topic personalisation

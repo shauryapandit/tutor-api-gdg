@@ -13,9 +13,6 @@ from prompts import FINANCIAL_SYSTEM_PROMPT
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
-
-
-
 def generate_chat_session_id():
     return f"{int(os.times()[4] * 1000)}_{os.urandom(8).hex()}"
 

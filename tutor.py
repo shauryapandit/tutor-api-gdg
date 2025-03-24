@@ -10,9 +10,9 @@ from fastapi import Depends, FastAPI, HTTPException
 from auth import (authenticate_with_firebase, db, get_firebase_user,
                   refresh_firebase_token)
 from gemini_functions import (generate_chat_session_id, load_chat_history,
-                              save_chat_history, send_message_to_gemini)
+                              save_chat_history, send_message_to_gemini, history_to_types, download_image)
 from models import (AnswerRequest, ChatRequest, LoginRequest, RefreshRequest,
-                    StartRequest)
+                    StartRequest, ChatRequest_v2)
 from prompts import FINANCIAL_SYSTEM_PROMPT, SCORE_PROMPT, SYSTEM_PROMPT
 
 load_dotenv()
@@ -197,6 +197,16 @@ def protected_route(user_data: dict = Depends(get_firebase_user)):
 def handle_exception(request, exc):
     print(f"Unhandled error: {exc}")
     return HTTPException(status_code=500, detail=str(exc))
+
+@app.post("/chatwithimage")
+async def chat(request: ChatRequest_v2):
+    chat_session_id = request.chatSessionId or str(int(os.times()[4] * 1000))
+    history = await load_chat_history(request.userId, chat_session_id)
+    response = await send_message_to_gemini(request.message, request.imageUrl, history)
+    new_history = history + [{"role": "user", "text": request.message, "image": request.imageUrl},
+                             {"role": "model", "text": response}]
+    await save_chat_history(request.userId, chat_session_id, new_history)
+    return {"reply": response, "chatSessionId": chat_session_id}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

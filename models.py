@@ -1,10 +1,20 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class ChatRequest(BaseModel):
     # userId: str
     message: str
     chatSessionId: str
+
+
+class ChatRequest_v2(BaseModel):
+
+
+    userId: str
+    message: str
+    chatSessionId: Optional[str] = None
+    imageUrl: Optional[str] = None
     
 class StartRequest(BaseModel):
     userId: str

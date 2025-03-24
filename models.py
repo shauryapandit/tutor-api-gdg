@@ -1,17 +1,20 @@
+from typing import Optional
+
 from pydantic import BaseModel
 
 
-class ChatRequest(BaseModel):
+class ChatRequestImage(BaseModel):
     # userId: str
     message: str
-    chatSessionId: str
-    
+    chatSessionId: Optional[str] = None
+    imageUrl: Optional[str] = None
+
 class StartRequest(BaseModel):
-    userId: str
+    # userId: str
     level: str
 
 class AnswerRequest(BaseModel):
-    userId: str
+    # userId: str
     sessionId: str
     answer: str
 

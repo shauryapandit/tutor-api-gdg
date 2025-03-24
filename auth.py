@@ -53,4 +53,9 @@ def get_firebase_user(credentials: HTTPAuthorizationCredentials = Depends(securi
         logging.exception(e)
         raise HTTPException(status_code=401, detail='Unauthorized')
 
-
+'''
+TODO:
+create user
+update user -> password reset too.
+delete user
+'''

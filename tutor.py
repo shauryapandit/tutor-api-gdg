@@ -153,12 +153,13 @@ def get_progress(userId: str, sessionId: str):
     return {"history": session_data.get("history", []), "score": session_data.get("score", 0)}
 
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, user_data: dict = Depends(get_firebase_user)):
+    uuid = user_data.get("uid")
     chat_session_id = request.chatSessionId or generate_chat_session_id()
-    history = await load_chat_history(request.userId, chat_session_id)
+    history = await load_chat_history(uuid, chat_session_id)
     response = await send_message_to_gemini(request.message, history, FINANCIAL_SYSTEM_PROMPT)
     new_history = history + [{"role": "user", "text": request.message}, {"role": "model", "text": response}]
-    await save_chat_history(request.userId, chat_session_id, new_history)
+    await save_chat_history(uuid, chat_session_id, new_history)
     return {"reply": response, "chatSessionId": chat_session_id}
 
 @app.post("/login")

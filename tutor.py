@@ -1,26 +1,25 @@
+import logging
 import os
 import uuid
-import firebase_admin
+
 import google.generativeai as genai
-import pandas as pd
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from firebase_admin import credentials, firestore
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException
+
+from auth import (authenticate_with_firebase, db, get_firebase_user,
+                  refresh_firebase_token)
+from gemini_functions import (generate_chat_session_id, load_chat_history,
+                              save_chat_history, send_message_to_gemini)
+from models import (AnswerRequest, ChatRequest, LoginRequest, RefreshRequest,
+                    StartRequest)
+from prompts import FINANCIAL_SYSTEM_PROMPT, SCORE_PROMPT, SYSTEM_PROMPT
 
 load_dotenv()
 
 app = FastAPI()
 
-# Load Firebase credentials
-firebase_creds_path = "./serviceAccountKey.json"
-if not os.path.exists(firebase_creds_path):
-    raise RuntimeError("Firebase credentials file missing!")
 
-cred = credentials.Certificate(firebase_creds_path)
-firebase_admin.initialize_app(cred)
-db = firestore.client()
 
 # Gemini API setup
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -30,45 +29,10 @@ if not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash")
 
-SYSTEM_PROMPT = """
-You are a financial education expert. Based on the user's selected difficulty level, generate a unique question from the following topics:
 
-1. If the user selects 'Beginner', ask simple fundamental financial concepts.
-2. If the user selects 'Intermediate', ask about financial instruments and market trends.
-3. If the user selects 'Advanced', ask about technical analysis and risk management.
-
-**Instructions:**
-- Do NOT repeat any previously asked questions.
-- Return only the question, without explanations or greetings.
-- Ensure the question is concise, clear, and relevant to the difficulty level.
-"""
-
-SCORE_PROMPT = """
-You are evaluating a financial quiz answer based on accuracy.
-
-**Scoring Criteria:**
-- Beginner: 1 point for correct, 1 point for partial, 0 for incorrect.
-- Intermediate: 2 points for correct, 1 point for partial, 0 for incorrect.
-- Advanced: 3 points for correct, 2 points for partial, 0 for incorrect.
-
-**Instructions:**
-- Provide a score (0, 1, 2, or 3) based on the difficulty level.
-- Explain briefly why the score was assigned.
-
-**Format:**
-Score: X
-Explanation: Y
-Reason: (Keep it Brief)
-"""
-
-class StartRequest(BaseModel):
-    userId: str
-    level: str
-
-class AnswerRequest(BaseModel):
-    userId: str
-    sessionId: str
-    answer: str
+@app.get("/")
+async def root():
+    return {"Status": "Active"}
 
 @app.post("/start")
 async def start_quiz(request: StartRequest):
@@ -187,6 +151,51 @@ def get_progress(userId: str, sessionId: str):
     
     session_data = session_doc.to_dict()
     return {"history": session_data.get("history", []), "score": session_data.get("score", 0)}
+
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    chat_session_id = request.chatSessionId or generate_chat_session_id()
+    history = await load_chat_history(request.userId, chat_session_id)
+    response = await send_message_to_gemini(request.message, history, FINANCIAL_SYSTEM_PROMPT)
+    new_history = history + [{"role": "user", "text": request.message}, {"role": "model", "text": response}]
+    await save_chat_history(request.userId, chat_session_id, new_history)
+    return {"reply": response, "chatSessionId": chat_session_id}
+
+@app.post("/login")
+def login(request_data: LoginRequest):
+    try:
+        result = authenticate_with_firebase(request_data.email, request_data.password)
+        return {
+            "id_token": result.get("idToken"),
+            "refresh_token": result.get("refreshToken"),
+            "expires_in": result.get("expiresIn"),
+        }
+    except Exception as e:
+        logging.exception(e)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.post("/refresh")
+def refresh_token(request_data: RefreshRequest):
+    try:
+        result = refresh_firebase_token(request_data.refresh_token)
+        return {
+            "id_token": result.get("id_token"),
+            "refresh_token": result.get("refresh_token"),
+            "expires_in": result.get("expires_in"),
+        }
+    except Exception as e:
+        logging.exception(e)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+@app.get("/protected-route")
+def protected_route(user_data: dict = Depends(get_firebase_user)):
+    return {"message": "Welcome to the protected route!", "user_data": user_data}
+
+# Error Handling
+@app.exception_handler(Exception)
+def handle_exception(request, exc):
+    print(f"Unhandled error: {exc}")
+    return HTTPException(status_code=500, detail=str(exc))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

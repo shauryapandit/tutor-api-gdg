@@ -11,6 +11,8 @@ from firebase_admin import auth, credentials, firestore
 load_dotenv()
 
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
+with open("serviceAccountKey.json", "w") as file:
+    file.write(os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY"))
 
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)

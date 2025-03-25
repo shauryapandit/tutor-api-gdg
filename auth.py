@@ -1,21 +1,29 @@
 import logging
 import os
-
+import base64
 import firebase_admin
 import requests
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, credentials, firestore
+import json
 
 load_dotenv()
 
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
-with open("serviceAccountKey.json", "w") as file:
-    file.write(os.getenv("FIREBASE_SERVICE_ACCOUNT_KEY"))
 
-cred = credentials.Certificate("serviceAccountKey.json")
+encoded_key = os.environ.get('FIREBASE_SERVICE_ACCOUNT_KEY')
+if not encoded_key:
+    raise ValueError("FIREBASE_SERVICE_ACCOUNT environment variable is missing.")
+
+decoded_key = base64.b64decode(encoded_key).decode('utf-8')
+service_account_info = json.loads(decoded_key)
+
+cred = credentials.Certificate(service_account_info)
 firebase_admin.initialize_app(cred)
+
+
 db = firestore.client()
 
 # Define HTTPBearer for Authorization header

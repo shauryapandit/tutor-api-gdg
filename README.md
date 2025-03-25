@@ -95,7 +95,6 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 - **Pandas** for CSV handling
 - **Uvicorn** for ASGI server
 
-
 # ADD LIST SESSIONS ENDPOINT
 # Modify the readme (Outdated)
 # improve prompts

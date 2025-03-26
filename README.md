@@ -180,7 +180,7 @@ GET /v1/protected-route
     "iat": "Issued At timestamp, indicating when the token was generated.",
     "exp": "Expiry timestamp, after which the token is invalid.",
     "email": "User’s verified email address.",
-    "email_verified": false or true,
+    "email_verified": "Boolean indicating whether the email is verified (true or false).",
     "firebase": {
       "identities": {
         "email": [

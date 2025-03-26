@@ -26,6 +26,7 @@ This FastAPI-based application provides a financial quiz system and an AI-powere
    ```
 4. Set up environment variables in a `.env` file:
    ```env
+    GEMINI_API_KEY=your_gemini_api_key
     FIREBASE_API_KEY=your_firebase_api_key
     FIREBASE_SERVICE_ACCOUNT_KEY=your_base64_encoded_service_account_json
    ```
@@ -194,18 +195,95 @@ GET /v1/protected-route
 }
 ```
 
+
+## Authentication
+This API uses Bearer token authentication. Include the `Authorization: Bearer YOUR_ACCESS_TOKEN` header in each request.
+execept for the following endpoints
+
+
+### Endpoints That Do Not Require Authentication
+The following endpoints do not require a Bearer token in the request header:
+- `GET /`
+- `POST /v1/login`
+- `POST /v1/refresh`
+
+### Example cURL Request:
+```bash
+curl -X 'POST' \
+  'https://tutor-api-gdg.vercel.app/v1/chatwithimage' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "message": "string",
+  "chatSessionId": "hey"
+}'
+```
+
+## Using the API in Next.js
+To interact with the API in a Next.js application, you can use the `fetch` API or Axios.
+
+### Example Using fetch:
+```javascript
+async function chatWithImage() {
+  const response = await fetch('https://tutor-api-gdg.vercel.app/v1/chatwithimage', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer YOUR_ACCESS_TOKEN`,
+    },
+    body: JSON.stringify({
+      message: 'Hello',
+      chatSessionId: 'hey',
+    })
+  });
+
+  const data = await response.json();
+  console.log(data);
+}
+
+chatWithImage();
+```
+
+### Example Using Axios:
+```javascript
+import axios from 'axios';
+
+async function chatWithImage() {
+  try {
+    const response = await axios.post(
+      'https://tutor-api-gdg.vercel.app/v1/chatwithimage',
+      {
+        message: 'Hello',
+        chatSessionId: 'hey',
+      },
+      {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer YOUR_ACCESS_TOKEN`,
+        },
+      }
+    );
+
+    console.log(response.data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+chatWithImage();
+```
+
+This demonstrates how to interact with the FastAPI endpoints using authentication in a Next.js application.
+
 ## Error Handling
 The API returns appropriate HTTP status codes and error messages:
 - `400 Bad Request` for invalid inputs
 - `401 Unauthorized` for authentication failures
 - `500 Internal Server Error` for unexpected failures
 
-## Deployment
-To deploy using Docker:
-```bash
-docker build -t fastapi-financial-quiz .
-docker run -p 8000:8000 fastapi-financial-quiz
-```
 
 ## License
 This project is licensed under the MIT License.

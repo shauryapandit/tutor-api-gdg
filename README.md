@@ -26,7 +26,8 @@ This FastAPI-based application provides a financial quiz system and an AI-powere
    ```
 4. Set up environment variables in a `.env` file:
    ```env
-   FIREBASE_CREDENTIALS_PATH=path/to/firebase/credentials.json
+    FIREBASE_API_KEY=your_firebase_api_key
+    FIREBASE_SERVICE_ACCOUNT_KEY=your_base64_encoded_service_account_json
    ```
 5. Run the application:
    ```bash
@@ -169,9 +170,26 @@ GET /v1/protected-route
 **Response:**
 ```json
 {
-  "message": "Welcome to the protected route!",
+  "message": "Issuer of the token, indicating Firebase authentication (e.g., https://securetoken.google.com/example-project-72981).",
   "user_data": {
-    "uid": "user-id"
+    "iss": "Issuer of the token, indicating Firebase authentication",
+    "aud": " Audience, which is your Firebase project identifier.",
+    "auth_time": "Timestamp (UNIX format) when the user was authenticated.",
+    "user_id": "Unique Firebase User ID",
+    "sub": "Unique Firebase User ID",
+    "iat": "Issued At timestamp, indicating when the token was generated.",
+    "exp": "Expiry timestamp, after which the token is invalid.",
+    "email": "User’s verified email address.",
+    "email_verified": false or true,
+    "firebase": {
+      "identities": {
+        "email": [
+          "User’s verified email address."
+        ]
+      },
+      "sign_in_provider": "password"
+    },
+    "uid": "Unique Firebase User ID"
   }
 }
 ```

@@ -277,13 +277,3 @@ chatWithImage();
 ```
 
 This demonstrates how to interact with the FastAPI endpoints using authentication in a Next.js application.
-
-## Error Handling
-The API returns appropriate HTTP status codes and error messages:
-- `400 Bad Request` for invalid inputs
-- `401 Unauthorized` for authentication failures
-- `500 Internal Server Error` for unexpected failures
-
-
-## License
-This project is licensed under the MIT License.

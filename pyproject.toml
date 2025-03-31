@@ -7,7 +7,6 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115.12",
     "firebase-admin>=6.7.0",
-    "google>=3.0.0",
     "google-genai>=1.7.0",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",

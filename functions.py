@@ -2,7 +2,7 @@ import os
 import random
 from typing import List, Optional
 
-import pandas as pd
+import csv
 import requests
 from fastapi import HTTPException
 from google import genai
@@ -21,7 +21,19 @@ if not GEMINI_API_KEY:
 MODEL = "gemini-2.0-flash"
 
 # Load the CSV file once
-df = pd.read_csv("finance_topics_full.csv")
+# Load the CSV file once
+# Load the CSV file once
+def load_csv(filename: str) -> list:
+    try:
+        with open(filename, mode="r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            return [row for row in reader]
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return []
+
+data = load_csv("finance_topics_full.csv")
+
 
 def generate_chat_session_id():
     return f"{int(os.times()[4] * 1000)}_{os.urandom(8).hex()}"
@@ -93,12 +105,13 @@ async def send_to_gemini(prompt_text: str) -> str:
         raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
 
 async def generate_unique_question(level: str, askedTopics: list) -> tuple:
-    filtered_df = df[df["Difficulty"] == level]
+    filtered_data = [row for row in data if row["Difficulty"] == level]
 
-    if filtered_df.empty:
+    if not filtered_data:
         return "No available topics for this difficulty level.", ""
 
-    unasked_topics = [topic for topic in filtered_df["Topic"].tolist() if topic not in askedTopics]
+    unasked_topics = [row["Topic"] for row in filtered_data if row["Topic"] not in askedTopics]
+
     if not unasked_topics:
         return "All available topics have been covered.", ""
 

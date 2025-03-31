@@ -6,7 +6,7 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from google.cloud import firestore
+from firebase_admin import firestore
 
 from auth import (authenticate_with_firebase, db, get_firebase_user,
                   refresh_firebase_token)

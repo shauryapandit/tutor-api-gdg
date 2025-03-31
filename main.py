@@ -33,7 +33,7 @@ app.add_middleware(
 async def root():
     return {"Status": "Active"}
 
-@app.post("/v2/profile")
+@app.post("/v1/profile")
 async def portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_user)):
     user_id = user_data.get("uid")
     user_ref = db.collection("profile").document(user_id)
@@ -48,7 +48,7 @@ async def portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_u
         "profile": updated_profile
     }
 
-@app.post("/v2/start")
+@app.post("/v1/start")
 async def start_quiz(request: StartRequest, user_data: dict = Depends(get_firebase_user)):
 
     """
@@ -89,7 +89,7 @@ async def start_quiz(request: StartRequest, user_data: dict = Depends(get_fireba
 
     return {"sessionId": session_id, "message": generated_question}
 
-@app.post("/v2/answer")
+@app.post("/v1/answer")
 async def answer_question(request: AnswerRequest, user_data: dict = Depends(get_firebase_user)):
     """
     Processes the user's answer for the current quiz question, evaluates it, updates the quiz session, and provides the next question.

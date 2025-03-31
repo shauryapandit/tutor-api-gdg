@@ -1,13 +1,14 @@
+import base64
+import json
 import logging
 import os
-import base64
+
 import firebase_admin
 import requests
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from firebase_admin import auth, credentials, firestore
-import json
 
 load_dotenv()
 

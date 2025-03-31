@@ -1,6 +1,8 @@
 import os
+import random
 from typing import List, Optional
 
+import pandas as pd
 import requests
 from fastapi import HTTPException
 from google import genai
@@ -8,7 +10,7 @@ from google.genai import types
 from google.genai.types import GenerateContentConfig, GoogleSearch, Tool
 
 from auth import db
-from prompts import FINANCIAL_SYSTEM_PROMPT, SCORE_PROMPT, SYSTEM_PROMPT
+from prompts import FINANCIAL_SYSTEM_PROMPT, QUESTION_PROMPT, SCORE_PROMPT
 
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
@@ -17,6 +19,9 @@ if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY not set in .env!")
 
 MODEL = "gemini-2.0-flash"
+
+# Load the CSV file once
+df = pd.read_csv("finance_topics_full.csv")
 
 def generate_chat_session_id():
     return f"{int(os.times()[4] * 1000)}_{os.urandom(8).hex()}"
@@ -87,24 +92,26 @@ async def send_to_gemini(prompt_text: str) -> str:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Gemini API error: {e}")
 
-async def generate_unique_question(level: str, asked_questions: list) -> str:
-    """Generates a unique question that has not been asked before."""
-    prompt_text = f"""
-    {SYSTEM_PROMPT}
-    Difficulty Level: {level}
+async def generate_unique_question(level: str, askedTopics: list) -> tuple:
+    filtered_df = df[df["Difficulty"] == level]
 
-    **Previously Asked Questions:**
-    {', '.join(asked_questions) if asked_questions else 'None'}
+    if filtered_df.empty:
+        return "No available topics for this difficulty level.", ""
 
-    Generate a new question that has not been asked before.
-    """
+    unasked_topics = [topic for topic in filtered_df["Topic"].tolist() if topic not in askedTopics]
+    if not unasked_topics:
+        return "All available topics have been covered.", ""
 
-    for _ in range(5):  # Try multiple times to avoid repetition
+    selected_topic = random.choice(unasked_topics)
+
+    prompt_text = f"{QUESTION_PROMPT}Generate a financial quiz question related to the topic: {selected_topic}. The question should match the {level} difficulty level."
+
+    for _ in range(5):
         new_question = await send_to_gemini(prompt_text)
-        if new_question not in asked_questions:
-            return new_question
-
-    return "No unique question could be generated."
+        if new_question not in askedTopics:
+            return new_question, selected_topic
+        
+    return "No unique question could be generated.", selected_topic
 
 async def evaluate_answer(user_answer: str, question_topic: str, level: str) -> int:
     """Evaluates the user's answer and assigns a score."""

@@ -6,13 +6,14 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from google.cloud import firestore
 
 from auth import (authenticate_with_firebase, db, get_firebase_user,
                   refresh_firebase_token)
 from functions import (evaluate_answer, generate_unique_question,
                        load_chat_history, save_chat_history,
                        send_message_to_gemini, send_to_gemini)
-from models import (AnswerRequest, ChatRequestImage, LoginRequest,
+from models import (AnswerRequest, ChatRequestImage, LoginRequest, Portfolio,
                     RefreshRequest, StartRequest)
 from prompts import FINANCIAL_SYSTEM_PROMPT
 
@@ -22,18 +23,32 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins= ["*"],
-    allow_credentials= True,
-    allow_methods= ["*"],
-    allow_headers= ["*"]
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
 )
-
 
 @app.get("/")
 async def root():
     return {"Status": "Active"}
 
-@app.post("/v1/start")
+@app.post("/v2/profile")
+async def portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_user)):
+    user_id = user_data.get("uid")
+    user_ref = db.collection("profile").document(user_id)
+
+    # user_ref.set({"Name": request.name,"Age": request.age,"Income": request.income,"Portfolio":firestore.ArrayUnion(request.portfolio)},merge=True)
+    user_ref.set({"Name": request.name,"Age": request.age,"Income": request.income,"Portfolio":request.portfolio},merge=True)
+    # Fetch the updated profile to return
+    updated_profile = user_ref.get().to_dict()
+
+    return {
+        "message": "Profile successfully created or updated.",
+        "profile": updated_profile
+    }
+
+@app.post("/v2/start")
 async def start_quiz(request: StartRequest, user_data: dict = Depends(get_firebase_user)):
 
     """
@@ -53,23 +68,28 @@ async def start_quiz(request: StartRequest, user_data: dict = Depends(get_fireba
 
     session_id = str(uuid.uuid4())
     user_id = user_data.get("uid")
-    # Fetch a unique question
-    generated_question = await generate_unique_question(request.level, [])
+    
+    generated_question, topic = await generate_unique_question(request.level, [])
 
     session_data = {
         "userId": user_id,
         "sessionId": session_id,
         "level": request.level,
         "history": [],
-        "askedQuestions": [generated_question],  # Track asked questions
+        "askedQuestions": [generated_question],
+        "askedTopics": [topic],
         "currentQuestion": {"Topic": generated_question},
         "score": 0,
     }
+    # change it to a user profile
     db.collection("quiz_sessions").document(user_id).collection("sessions").document(session_id).set(session_data)
+    # # Store asked question separately under userId -> askedQuestions
+    # question_ref = db.collection("Topics").document("AskedTopics")
+    # question_ref.set({"Topics": firestore.ArrayUnion([{"Topic": topic}])}, merge=True)
+
     return {"sessionId": session_id, "message": generated_question}
 
-
-@app.post("/v1/answer")
+@app.post("/v2/answer")
 async def answer_question(request: AnswerRequest, user_data: dict = Depends(get_firebase_user)):
     """
     Processes the user's answer for the current quiz question, evaluates it, updates the quiz session, and provides the next question.
@@ -84,7 +104,6 @@ async def answer_question(request: AnswerRequest, user_data: dict = Depends(get_
     Raises:
         HTTPException: If the session does not exist.
     """
-
     uuid_user = user_data.get("uid")
     session_ref = db.collection("quiz_sessions").document(uuid_user).collection("sessions").document(request.sessionId)
     session_doc = session_ref.get()
@@ -94,13 +113,28 @@ async def answer_question(request: AnswerRequest, user_data: dict = Depends(get_
 
     session = session_doc.to_dict()
     question = session["currentQuestion"]["Topic"]
+    topic = session["askedTopics"]
     level = session["level"]
 
     evaluation = await send_to_gemini(f"Evaluate: {question}\nUser's answer: {request.answer}")
-
-
     score = await evaluate_answer(request.answer, question, level)
-    session["score"] += score
+    
+    # Update the Topics if it is known by user.
+    if score > 0 and level == "Beginner":
+        session["score"] += score
+        # Store the topic if the answer is correct
+        question_ref = db.collection("topics").document("AskedTopics")
+        question_ref.set({"Topics": firestore.ArrayUnion([{"Topic": topic}])}, merge=True)
+    if score > 0 and level == "Intermediate":
+        session["score"] += score
+        question_ref = db.collection("topics").document("AskedTopics")
+        question_ref.set({"Topics": firestore.ArrayUnion([{"Topic": topic}])}, merge=True)
+    if score > 1 and level == "Advanced":
+        session["score"] += score
+        question_ref = db.collection("topics").document("AskedTopics")
+        question_ref.set({"Topics": firestore.ArrayUnion([{"Topic": topic}])}, merge=True)
+    if score == 0 and level == "Advanced":
+        session["score"] += score
 
     history_entry = {
         "question": question,
@@ -108,34 +142,49 @@ async def answer_question(request: AnswerRequest, user_data: dict = Depends(get_
         "evaluation": evaluation,
         "score": score,
     }
-    session["history"].append(history_entry)
 
-    # Generate a new question, ensuring uniqueness
-    asked_questions = session.get("askedQuestions", [])
-    new_question = await generate_unique_question(level, asked_questions)
-    asked_questions.append(new_question)
+    # Update the user's total score
+    total_score_ref = db.collection("experiencePoints").document(uuid_user)
+    total_score_doc = total_score_ref.get()
 
+    # Adjust the score multiplier based on the difficulty level
+    if level == "Beginner":
+        score_multiplier = 100
+    elif level == "Intermediate":
+        score_multiplier = 300
+    elif level == "Advanced":
+        score_multiplier = 500
+    else:
+        score_multiplier = 1  # Default case, though it shouldn't reach here
+
+    # Multiply the score before storing
+    calculated_score = score * score_multiplier
+
+    if total_score_doc.exists:
+        total_score_data = total_score_doc.to_dict()
+        new_total_score = total_score_data.get("score", 0) + calculated_score
+    else:
+        new_total_score = calculated_score
+
+    total_score_ref.set({"score": new_total_score}, merge=True)
+    
+
+    new_question, new_topic = await generate_unique_question(level, session.get("askedTopics", []))
+    
     session["currentQuestion"] = {"Topic": new_question}
-    session["askedQuestions"] = asked_questions
+    session["askedQuestions"].append(new_question)
+    session["history"].append(history_entry)
+    session["askedTopics"] = new_topic
+
+    # question_ref = db.collection("Topics").document("AskedTopics")
+    # question_ref.set({"Topics": firestore.ArrayUnion([{"Topic": new_topic}])}, merge=True)
+
     session_ref.set(session, merge=True)
 
     return {"evaluation": evaluation, "nextQuestion": new_question, "currentScore": session["score"]}
 
 @app.get("/v1/progress/{sessionId}")
-def get_progress(sessionId: str, user_data: dict = Depends(get_firebase_user)):
-    """
-    Retrieves the progress of a given session.
-
-    Args:
-        sessionId (str): The unique ID of the session.
-        user_data (dict): The user data retrieved from Firebase authentication.
-
-    Returns:
-        dict: A JSON response containing the history of questions and answers, and the current score.
-
-    Raises:
-        HTTPException: If the session does not exist.
-    """
+async def get_progress(sessionId: str, user_data: dict = Depends(get_firebase_user)):
     userId = user_data.get("uid")
     session_ref = db.collection("quiz_sessions").document(userId).collection("sessions").document(sessionId)
     session_doc = session_ref.get()
@@ -148,43 +197,20 @@ def get_progress(sessionId: str, user_data: dict = Depends(get_firebase_user)):
 
 @app.post("/v1/chatwithimage")
 async def chat(request: ChatRequestImage, user_data: dict = Depends(get_firebase_user)):
-    """
-    Handles a chat request with an image and returns a response.
-
-    Args:
-        request (ChatRequestImage): The JSON payload containing the message, chat session ID, and image URL.
-        user_data (dict): The user data retrieved from Firebase authentication.
-
-    Returns:
-        dict: A JSON response containing the response from Gemini AI and the chat session ID.
-
-    Raises:
-        HTTPException: If the chat session ID is invalid or if the user does not exist.
-    """
-    chat_session_id = request.chatSessionId or str(int(os.times()[4] * 1000))
+    chat_session_id = request.chatSessionId or str(uuid.uuid4())
     user_id = user_data.get("uid")
+
     history = await load_chat_history(user_id, chat_session_id)
     response = await send_message_to_gemini(request.message, request.imageUrl, history)
+
     new_history = history + [{"role": "user", "text": request.message, "image": request.imageUrl},
                              {"role": "model", "text": response}]
     await save_chat_history(user_id, chat_session_id, new_history)
+
     return {"reply": response, "chatSessionId": chat_session_id}
 
 @app.post("/v1/login")
 def login(request_data: LoginRequest):
-    """
-    Authenticates a user with Firebase using email and password.
-
-    Args:
-        request_data (LoginRequest): The request payload containing the user's email and password.
-
-    Returns:
-        dict: A JSON response containing the authentication tokens and expiration time.
-
-    Raises:
-        HTTPException: If authentication fails or an internal error occurs.
-    """
-
     try:
         result = authenticate_with_firebase(request_data.email, request_data.password)
         return {
@@ -198,18 +224,6 @@ def login(request_data: LoginRequest):
 
 @app.post("/v1/refresh")
 def refresh_token(request_data: RefreshRequest):
-    """
-    Refreshes the Firebase authentication token.
-
-    Args:
-        request_data (RefreshRequest): The request payload containing the refresh token.
-
-    Returns:
-        dict: A JSON response containing the new authentication tokens and expiration time.
-
-    Raises:
-        HTTPException: If the refresh token is invalid or if an internal error occurs.
-    """
     try:
         result = refresh_firebase_token(request_data.refresh_token)
         return {
@@ -223,24 +237,7 @@ def refresh_token(request_data: RefreshRequest):
 
 @app.get("/v1/protected-route")
 def protected_route(user_data: dict = Depends(get_firebase_user)):
-    """
-    A protected route that requires user authentication.
-
-    Args:
-        user_data (dict): The user data retrieved from Firebase authentication.
-
-    Returns:
-        dict: A JSON response containing a welcome message and the authenticated user's data.
-    """
-
     return {"message": "Welcome to the protected route!", "user_data": user_data}
-
-
-# Error Handling
-@app.exception_handler(Exception)
-def handle_exception(request, exc):
-    print(f"Unhandled error: {exc}")
-    return HTTPException(status_code=500, detail=str(exc))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

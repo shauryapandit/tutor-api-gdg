@@ -24,3 +24,9 @@ class LoginRequest(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+class Portfolio(BaseModel):
+    name: str
+    age: int
+    income: float
+    portfolio: list[str]

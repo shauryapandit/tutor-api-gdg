@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Optional, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class ChatRequestImage(BaseModel):
@@ -11,7 +11,7 @@ class ChatRequestImage(BaseModel):
 
 class StartRequest(BaseModel):
     # userId: str
-    level: str
+    level: Literal["Beginner", "Intermediate", "Advanced"]
 
 class AnswerRequest(BaseModel):
     # userId: str
@@ -19,7 +19,7 @@ class AnswerRequest(BaseModel):
     answer: str
 
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class RefreshRequest(BaseModel):
@@ -30,6 +30,7 @@ class Portfolio(BaseModel):
     age: int
     monthlyincome: float
     monthlysaving: float
+    profession: Literal["Employed", "Self-Employed", "Unemployed"]
     primaryreasonforinvesting: str
     financialrisk: str
     expaboutinvesting: str

@@ -44,6 +44,7 @@ async def portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_u
     "Age": request.age,
     "Monthly_Income": request.monthlyincome,
     "Monthly_Saving": request.monthlysaving,
+    "Profession": request.profession,
     "Primary_Reason_For_Investing": request.primaryreasonforinvesting,
     "Feel_About_Financial_Risk": request.financialrisk,
     "Experience_About_Investing": request.expaboutinvesting,

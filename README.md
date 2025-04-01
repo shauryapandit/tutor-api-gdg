@@ -48,6 +48,83 @@ GET /
 }
 ```
 
+## User Profile Endpoint
+
+### **POST /v1/profile**
+- **Description:** Create the user profile.
+
+#### **Request Body:**
+```json
+{
+  "name": "John",
+  "age": 25,
+  "monthlyincome": 50000,
+  "monthlysaving": 10000,
+  "Profession" : "Employed",
+  "primaryreasonforinvesting": "Retirement savings",
+  "financialrisk": "Moderate",
+  "expaboutinvesting": "Beginner",
+  "estimateinvestingduration": 10,
+  "typesofinvestment": ["Stocks", "Bonds"],
+  "portfolio": ["Stock A", "Stock B"]
+}
+```
+#### **Response Body:**
+```json
+{
+  "message": "Profile successfully created.",
+  "profile": {
+    "Name": "John",
+    "Age": 25,
+    "Monthly_Income": 50000,
+    "Monthly_Saving": 10000,
+    "Profession" : "Employed",
+    "Primary_Reason_For_Investing": "Retirement savings",
+    "Feel_About_Financial_Risk": "Moderate",
+    "Experience_About_Investing": "Beginner",
+    "Estimated_Investing_Duration_Year": 10,
+    "Types_Of_Investment_Interest_You_The_Most": ["Stocks", "Bonds"],
+    "Portfolio": ["Stock A", "Stock B"]
+  }
+}
+```
+### **PUT /v1/profile**
+- **Description:** Update the user profile.
+
+#### **Request Body:**
+```json
+{
+  "name": "John",
+  "age": 26,
+  "monthlyincome": 60000,
+  "monthlysaving": 12000,
+  "primaryreasonforinvesting": "Retirement savings",
+  "financialrisk": "High",
+  "expaboutinvesting": "Intermediate",
+  "estimateinvestingduration": 15,
+  "typesofinvestment": ["Real Estate", "Stocks"],
+  "portfolio": ["Stock A", "Stock C"]
+}
+```
+#### **Response Body:**
+```json
+{
+  "message": "Profile successfully updated.",
+  "profile": {
+    "Name": "John",
+    "Age": 26,
+    "Monthly_Income": 60000,
+    "Monthly_Saving": 12000,
+    "Primary_Reason_For_Investing": "Retirement savings",
+    "Feel_About_Financial_Risk": "High",
+    "Experience_About_Investing": "Intermediate",
+    "Estimated_Investing_Duration_Year": 15,
+    "Types_Of_Investment_Interest_You_The_Most": ["Real Estate", "Stocks"],
+    "Portfolio": ["Stock A", "Stock C"]
+  }
+}
+```
+
 ### Start Quiz Session
 ```http
 POST /v1/start

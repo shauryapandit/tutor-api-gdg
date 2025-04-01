@@ -1,6 +1,6 @@
 from typing import Optional, Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class ChatRequestImage(BaseModel):
@@ -19,7 +19,7 @@ class AnswerRequest(BaseModel):
     answer: str
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class RefreshRequest(BaseModel):

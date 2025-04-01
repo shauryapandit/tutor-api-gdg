@@ -353,4 +353,4 @@ async function chatWithImage() {
 chatWithImage();
 ```
 
-This demonstrates how to interact with the FastAPI endpoints using authentication in a Next.js application.
+This demonstrates how to interact with the FastAPI endpoints using authentication in a Next.js application .

@@ -38,15 +38,54 @@ async def portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_u
     user_id = user_data.get("uid")
     user_ref = db.collection("profile").document(user_id)
 
-    # user_ref.set({"Name": request.name,"Age": request.age,"Income": request.income,"Portfolio":firestore.ArrayUnion(request.portfolio)},merge=True)
-    user_ref.set({"Name": request.name,"Age": request.age,"Income": request.income,"Portfolio":request.portfolio},merge=True)
+    # Create the user's profile
+    user_ref.set({
+    "Name": request.name,
+    "Age": request.age,
+    "Monthly_Income": request.monthlyincome,
+    "Monthly_Saving": request.monthlysaving,
+    "Primary_Reason_For_Investing": request.primaryreasonforinvesting,
+    "Feel_About_Financial_Risk": request.financialrisk,
+    "Experience_About_Investing": request.expaboutinvesting,
+    "Estimated_Investing_Duration_Month": request.estimateinvestingduration,
+    "Types_Of_Investment_Interest_You_The_Most": request.typesofinvestment,
+    "Portfolio": request.portfolio
+    }, merge=True)
     # Fetch the updated profile to return
     updated_profile = user_ref.get().to_dict()
 
     return {
-        "message": "Profile successfully created or updated.",
+        "message": "Profile successfully created.",
         "profile": updated_profile
     }
+
+@app.put("/v1/profile")
+async def update_portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_user)):
+    user_id = user_data.get("uid")
+    user_ref = db.collection("profile").document(user_id)
+
+    # Update the user's profile
+    user_ref.update({
+    "Name": request.name,
+    "Age": request.age,
+    "Monthly_Income": request.monthlyincome,
+    "Monthly_Saving": request.monthlysaving,
+    "Primary_Reason_For_Investing": request.primaryreasonforinvesting,
+    "Feel_About_Financial_Risk": request.financialrisk,
+    "Experience_About_Investing": request.expaboutinvesting,
+    "Estimated_Investing_Duration_Month": request.estimateinvestingduration,
+    "Types_Of_Investment_Interest_You_The_Most": request.typesofinvestment,
+    "Portfolio": request.portfolio
+    })
+
+    # Fetch the updated profile to return
+    updated_profile = user_ref.get().to_dict()
+
+    return {
+        "message": "Profile successfully updated.",
+        "profile": updated_profile
+    }
+
 
 @app.post("/v1/start")
 async def start_quiz(request: StartRequest, user_data: dict = Depends(get_firebase_user)):
@@ -133,7 +172,7 @@ async def answer_question(request: AnswerRequest, user_data: dict = Depends(get_
         session["score"] += score
         question_ref = db.collection("topics").document("AskedTopics")
         question_ref.set({"Topics": firestore.ArrayUnion([{"Topic": topic}])}, merge=True)
-    if score == 0 and level == "Advanced":
+    if score == 1 and level == "Advanced":
         session["score"] += score
 
     history_entry = {

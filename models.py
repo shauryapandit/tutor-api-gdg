@@ -28,5 +28,11 @@ class RefreshRequest(BaseModel):
 class Portfolio(BaseModel):
     name: str
     age: int
-    income: float
+    monthlyincome: float
+    monthlysaving: float
+    primaryreasonforinvesting: str
+    financialrisk: str
+    expaboutinvesting: str
+    estimateinvestingduration: int
+    typesofinvestment: list[str]
     portfolio: list[str]

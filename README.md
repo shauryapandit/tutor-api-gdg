@@ -88,7 +88,7 @@ GET /
   }
 }
 ```
-### **PUT /v1/profile**
+### **PATCH /v1/profile**
 - **Description:** Update the user profile.
 
 #### **Request Body:**

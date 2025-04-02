@@ -60,6 +60,40 @@ async def portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_u
         "profile": updated_profile
     }
 
+@app.patch("/v1/profile")
+async def update_portfolio(request: Portfolio, user_data: dict = Depends(get_firebase_user)):
+    user_id = user_data.get("uid")
+    user_ref = db.collection("profile").document(user_id)
+
+    # Prepare the update data, skipping None values
+    update_data = { 
+        "Name": request.name,
+        "Age": request.age,
+        "Monthly_Income": request.monthlyincome,
+        "Monthly_Saving": request.monthlysaving,
+        "Profession": request.profession,
+        "Primary_Reason_For_Investing": request.primaryreasonforinvesting,
+        "Feel_About_Financial_Risk": request.financialrisk,
+        "Experience_About_Investing": request.expaboutinvesting,
+        "Estimated_Investing_Duration_Month": request.estimateinvestingduration,
+        "Types_Of_Investment_Interest_You_The_Most": request.typesofinvestment,
+        "Portfolio": request.portfolio
+    }
+
+    # Remove keys with None values to avoid overwriting existing data
+    update_data = {k: v for k, v in update_data.items() if v is not None}
+
+    # Update the user's profile
+    user_ref.update(update_data)
+
+    # Fetch the updated profile to return
+    updated_profile = user_ref.get().to_dict()
+
+    return {
+        "message": "Profile successfully updated.",
+        "profile": updated_profile
+    }
+
 @app.post("/v1/start")
 async def start_quiz(request: StartRequest, user_data: dict = Depends(get_firebase_user)):
 
